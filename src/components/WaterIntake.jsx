@@ -189,11 +189,11 @@ const WaterIntake = () => {
                   transition={{ delay: 0.2 + index * 0.05 }}
                 >
                   <Button
-                    onClick={() => handleQuickAdd(amount)}
-                    className="w-full bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 border border-cyan-500/30 text-cyan-300 font-semibold transition-all transform hover:scale-105"
+                  onClick={() => handleQuickAdd(amount)}
+                  className="w-full bg-gradient-to-r from-blue-900/40 to-indigo-900/40 hover:from-blue-800/60 hover:to-indigo-800/60 border border-blue-700/50 text-blue-100 font-semibold transition-all transform hover:scale-105 shadow-lg shadow-blue-900/20"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {amount}ml
+                  <Plus className="w-4 h-4 mr-2" />
+                  {amount}ml
                   </Button>
                 </motion.div>
               ))}
