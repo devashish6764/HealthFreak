@@ -35,58 +35,56 @@ const AlexChat = () => {
     }
   }, [messages, isOpen]);
 
-  const callGeminiAPI = async (userText) => {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            system_instruction: {
-              parts: { text: systemPrompt }
-            },
-            contents: [
-              // Optionally, you can map previous messages here for conversation history
-              { role: "user", parts: [{ text: userText }] }
-            ],
-          }),
-        }
-      );
+ // --- ALEX'S BUILT-IN MEDICINE DICTIONARY ---
+  const offlineMedicineDB = {
+    paracetamol: "Paracetamol (or Crocin/Tylenol) is used for mild pain and fever. 💊 **Adult Dose:** 500mg to 1000mg every 4-6 hours. **Max:** Do not exceed 4000mg in 24 hours. ⚠️ Always consult your doctor!",
+    ibuprofen: "Ibuprofen (Advil/Motrin) is an NSAID for pain, fever, and inflammation. 💊 **Adult Dose:** 200mg to 400mg every 4-6 hours. Take it with food to avoid stomach upset. ⚠️ Always consult your doctor!",
+    metformin: "Metformin is commonly used to manage type 2 diabetes. 💊 **Dose:** This is highly individualized, but often starts at 500mg once or twice daily with meals. ⚠️ You must follow your doctor's exact prescription for this!",
+    cetirizine: "Cetirizine (Zyrtec) is an antihistamine for allergies. 💊 **Adult Dose:** Usually 10mg once daily. It can cause slight drowsiness in some people. ⚠️ Always consult your doctor!",
+    amoxicillin: "Amoxicillin is an antibiotic for bacterial infections. 💊 **Dose:** Depends entirely on the infection (often 250mg-500mg every 8 hours). You MUST finish the entire course your doctor prescribed, even if you feel better! ⚠️",
+  };
 
-      const data = await response.json();
-      
-      if (data.candidates && data.candidates.length > 0) {
-        return data.candidates[0].content.parts[0].text;
-      } else {
-        throw new Error("No response from AI");
+  const getOfflineResponse = (query) => {
+    const q = query.toLowerCase();
+
+    // 1. Check if they are asking about a specific medicine
+    for (const [med, info] of Object.entries(offlineMedicineDB)) {
+      if (q.includes(med)) {
+        return `${info} \n\nHow are you feeling today? Are you tracking your symptoms in the app?`;
       }
-    } catch (error) {
-      console.error("Error fetching AI response:", error);
-      return "I'm having a little trouble connecting to my database right now. Let's take a deep breath and try again in a moment! 🧘‍♂️";
     }
+
+    // 2. Interactive & Motivational Catch-alls
+    if (q.includes('hello') || q.includes('hi')) {
+      return "Hey there! I'm Alex. 🌟 I can tell you about common meds like Paracetamol, Ibuprofen, or Metformin. What do you need help with?";
+    }
+    if (q.includes('water') || q.includes('thirsty')) {
+      return "Hydration check! 💧 Have you logged your water intake today? Aim for at least 8 glasses!";
+    }
+
+    // 3. Fallback
+    return "That's a great question! I'm currently in 'Offline Mode', so I only know about common medicines like Paracetamol, Ibuprofen, Cetirizine, Amoxicillin, and Metformin. Try asking me about one of those! 🩺";
   };
 
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    // Add user message to UI
+    // 1. Add User Message
     const userMessage = { role: 'user', text: input };
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input; // save it before clearing
     setInput('');
     setIsTyping(true);
 
-    // Fetch AI response
-    const aiResponseText = await callGeminiAPI(userMessage.text);
-
-    // Add AI message to UI
-    const alexMessage = { role: 'alex', text: aiResponseText };
-    setMessages(prev => [...prev, alexMessage]);
-    setIsTyping(false);
+    // 2. Simulate a slight delay so it feels like a real chat
+    setTimeout(() => {
+      const responseText = getOfflineResponse(currentInput);
+      const alexMessage = { role: 'alex', text: responseText };
+      setMessages(prev => [...prev, alexMessage]);
+      setIsTyping(false);
+    }, 600);
   };
-
+  
   return (
     <div className="fixed bottom-6 right-6 z-50">
       {!isOpen ? (
