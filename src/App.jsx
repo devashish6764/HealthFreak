@@ -5,9 +5,6 @@ import Dashboard from '@/pages/Dashboard';
 import { Toaster } from '@/components/ui/toaster';
 import AlexChat from './components/AlexChat';
 
-
-// ... keep your imports at the top ...
-
 function AppContent() {
   const { isAuthenticated } = useAuth(); //
 
