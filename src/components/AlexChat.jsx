@@ -17,7 +17,7 @@ const AlexChat = () => {
   const scrollRef = useRef(null);
 
   // This safely grabs your API key from the .env file!
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY?.replace(/['"]/g, '').trim();
 
   const systemPrompt = `You are Alex, an energetic, highly motivating, and informative health assistant for the HealthFreak app. 
   Your primary rules are:
@@ -40,7 +40,7 @@ const AlexChat = () => {
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
