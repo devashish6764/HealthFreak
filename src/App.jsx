@@ -3,15 +3,25 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import LoginPage from '@/pages/LoginPage';
 import Dashboard from '@/pages/Dashboard';
 import { Toaster } from '@/components/ui/toaster';
+import AlexChat from './components/AlexChat';
+
+
+// ... keep your imports at the top ...
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth(); //
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return <LoginPage />; //
   }
 
-  return <Dashboard />;
+  return (
+    <div className="app-container">
+      <Dashboard /> 
+      {/* Floating AI Assistant added here */}
+      <AlexChat /> 
+    </div>
+  );
 }
 
 function App() {
