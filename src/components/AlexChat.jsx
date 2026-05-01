@@ -142,7 +142,7 @@ const AlexChat = () => {
           {/* Input Area - Dark Mode */}
           <div className="p-3 border-t border-slate-700 bg-slate-800 flex gap-2 items-center">
             <Input 
-              placeholder="Ask about meds..." 
+              placeholder="Ask me anything about health, meds, or just say hi! 👋" 
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
