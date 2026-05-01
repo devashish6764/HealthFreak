@@ -11,7 +11,7 @@ const AlexChat = () => {
   const [messages, setMessages] = useState([
     { 
       role: 'alex', 
-      text: "Hey! I'm Alex. 🌟 I'm so glad you're here today. Whether it's a medicine question or you just need some motivation, I've got your back! What can we tackle first?" 
+      text: "Hey! I'm Alex. 🌟 I'm so glad you're here today. What's on your mind?" 
     }
   ]);
   const scrollRef = useRef(null);
@@ -97,37 +97,41 @@ const AlexChat = () => {
           <MessageCircle size={28} className="text-white" />
         </Button>
       ) : (
-        <Card className="w-80 h-[28rem] flex flex-col shadow-2xl border-t-4 border-t-primary rounded-2xl overflow-hidden bg-white">
-          {/* Header */}
-          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+        <Card className="w-80 h-[28rem] flex flex-col shadow-2xl border-t-4 border-t-primary border-slate-700 rounded-2xl overflow-hidden bg-slate-900">
+          {/* Header - Dark Mode */}
+          <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-bold text-primary text-lg">Alex</span>
+              <span className="font-bold text-white text-lg">Alex</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)} className="h-8 w-8 p-0 rounded-full hover:bg-slate-200">
-              <X size={18} />
-            </Button>
+            
+            <button 
+              onClick={() => setIsOpen(false)} 
+              className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center font-bold transition-colors"
+              aria-label="Close chat"
+            >
+              ✕
+            </button>
           </div>
 
-          {/* Chat Body */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+          {/* Chat Body - Dark Mode */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] p-3 text-sm shadow-sm ${
                   msg.role === 'user' 
                     ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-none' 
-                    : 'bg-white border text-slate-800 rounded-2xl rounded-bl-none'
+                    : 'bg-slate-800 border border-slate-700 text-slate-100 rounded-2xl rounded-bl-none'
                 }`}>
-                  {/* React Markdown can be added later if you want bold text from AI */}
                   {msg.text}
                 </div>
               </div>
             ))}
             
-            {/* Typing Indicator */}
+            {/* Typing Indicator - Dark Mode */}
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-white border p-3 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2 text-slate-500">
+                <div className="bg-slate-800 border border-slate-700 p-3 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-2 text-slate-400">
                   <Loader2 size={16} className="animate-spin" />
                   <span className="text-xs">Alex is typing...</span>
                 </div>
@@ -135,14 +139,14 @@ const AlexChat = () => {
             )}
           </div>
 
-          {/* Input Area */}
-          <div className="p-3 border-t bg-white flex gap-2 items-center">
+          {/* Input Area - Dark Mode */}
+          <div className="p-3 border-t border-slate-700 bg-slate-800 flex gap-2 items-center">
             <Input 
-              placeholder="Ask about meds or get motivated..." 
+              placeholder="Ask about meds..." 
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              className="flex-1 rounded-full bg-slate-100 border-transparent focus:bg-white focus:border-primary"
+              className="flex-1 rounded-full bg-slate-700 text-white placeholder:text-slate-400 border-transparent focus:bg-slate-600 focus:border-primary"
               disabled={isTyping}
             />
             <Button 
@@ -151,7 +155,7 @@ const AlexChat = () => {
               className="shrink-0 rounded-full w-10 h-10 transition-transform hover:scale-105"
               disabled={isTyping || !input.trim()}
             >
-              <Send size={18} className="ml-1" /> {/* ml-1 to visually center the paper plane */}
+              <Send size={18} className="ml-1 text-white" /> 
             </Button>
           </div>
         </Card>
