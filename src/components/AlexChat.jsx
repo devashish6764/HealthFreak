@@ -34,15 +34,20 @@ const AlexChat = () => {
   }, [messages, isOpen]);
 
   const callGeminiAPI = async (userText) => {
-    if (!GEMINI_API_KEY) {
-      return "Oops! It looks like my API key is missing. Please check your .env file! 🛑";
+    // Super-clean the API key
+    const rawKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+    const cleanKey = rawKey.replace(/['"]/g, '').trim();
+
+    if (!cleanKey) {
+      return "Oops! My API key is missing. Please check your Vercel settings! 🛑";
     }
 
     try {
+      // 🚨 FIXED MODEL NAME TO INCLUDE '-latest' 🚨
       const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`,
+          {
+            method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             system_instruction: { parts: { text: systemPrompt } },
@@ -51,18 +56,26 @@ const AlexChat = () => {
         }
       );
 
+      // Catch Google's exact error
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("🚨 GOOGLE ERROR:", errorData);
+        return `Google Error: ${errorData.error?.message || "Unknown 404"}`;
+      }
+
       const data = await response.json();
       
       if (data.candidates && data.candidates.length > 0) {
         return data.candidates[0].content.parts[0].text;
       } else {
-        throw new Error("No response from AI");
+        return "I connected, but didn't get a response back!";
       }
     } catch (error) {
-      console.error("API Error:", error);
-      return "I'm having a little trouble connecting right now. Let's take a deep breath and try again in a moment! 🧘‍♂️";
+      console.error("Fetch Error:", error);
+      return "My connection dropped! Check your internet or API key formatting. 🧘‍♂️";
     }
   };
+
 
   const handleSend = async () => {
     if (!input.trim()) return;
