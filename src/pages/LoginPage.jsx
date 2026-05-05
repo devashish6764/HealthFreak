@@ -1,102 +1,123 @@
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // Double check this path matches your folder structure!
 import React, { useState } from 'react';
-// Assuming you are using an AuthContext, import it here:
-// import { useAuth } from '../context/AuthContext'; 
-import { Mail, Lock, ArrowRight, KeyRound, Clock, UserCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, KeyRound, Clock, User, Ruler, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import emailjs from '@emailjs/browser';
 
 const LoginPage = () => {
-  // const { login } = useAuth(); // Uncomment if using AuthContext
+  // --- UI STATE ---
+  const [activeView, setActiveView] = useState('login'); // 'login', 'create', or 'forgot'
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { login, signup } = useAuth(); // Grabs the login function from your Context
+  
+  // ... your existing useState hooks stay here
 
-  // --- STANDARD LOGIN STATE ---
+  // --- LOGIN STATES ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
 
-  // --- FORGOT PASSWORD STATE ---
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetStep, setResetStep] = useState(1); // 1: Email, 2: Code, 3: New Password
+  // --- CREATE PROFILE STATES ---
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+
+  // --- FORGOT PASSWORD STATES ---
+  const [resetStep, setResetStep] = useState(1); 
   const [resetEmail, setResetEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [actualGeneratedCode, setActualGeneratedCode] = useState('');
 
-  // --- 1. THE STANDARD LOGIN FIX ---
-  const handleLogin = (e) => {
+  // ==========================================
+  // 1. CREATE PROFILE LOGIC
+  // ==========================================
+  const handleCreateProfile = async (e) => {
     e.preventDefault();
     setError('');
     
-    // Replace this with your actual auth logic or Context call
-    if (email === 'user@healthfreak.com' && password === 'password123') {
-      alert("Login Successful! Redirecting to Dashboard...");
-      // login({ email, id: '123' });
-      // window.location.href = '/dashboard';
+    // 1. Use your Context's signup function!
+    const response = await signup(newEmail, newPassword, newName);
+
+    if (response.success) {
+      // 2. Save the extra health stats (height/weight) separately
+      localStorage.setItem('healthFreakMetrics', JSON.stringify({ height, weight }));
+      
+      alert("Profile created successfully! Redirecting to Dashboard...");
+      navigate('/dashboard'); // It logs you in automatically!
     } else {
-      // This is likely where your old code was failing. Ensure the data types match exactly!
-      setError('Invalid email or password. Please try again.');
+      setError(response.error || "Failed to create profile. Email might be taken.");
     }
   };
 
-  // --- 2. THE 24-HOUR DEMO ACCOUNT ---
-  const handleDemoLogin = () => {
-    // We create a token that expires exactly 24 hours from right now
-    const expiryTime = Date.now() + (24 * 60 * 60 * 1000); 
+  // ==========================================
+  // 2. STANDARD LOGIN LOGIC
+  // ==========================================
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
     
-    const demoUser = {
-      id: 'demo-999',
-      name: 'Demo User',
-      email: 'demo@healthfreak.com',
-      isDemo: true,
-      expiresAt: expiryTime
-    };
-
-    localStorage.setItem('healthFreakUser', JSON.stringify(demoUser));
-    alert("Demo Account activated! Valid for 24 hours.");
-    // login(demoUser);
-    // window.location.href = '/dashboard';
+    // 1. Use your Context's login function with exactly what it asks for: email & password
+    const response = await login(email, password);
+    
+    if (response.success) {
+      navigate('/dashboard');
+    } else {
+      // If it fails, it will display the exact error from your storage utils!
+      setError(response.error || 'Invalid email or password. Please try again.');
+    }
   };
 
-  // --- 3. THE FORGOT PASSWORD FLOW ---
-  // We need a new state to remember the code we actually sent!
-  const [actualGeneratedCode, setActualGeneratedCode] = useState('');
+  // ==========================================
+  // 3. 24-HOUR DEMO LOGIC
+  // ==========================================
+   const handleDemoLogin = async () => {
+    // Generate a unique dummy email so it never clashes
+    const dummyEmail = `demo_${Date.now()}@healthfreak.com`;
+    
+    // Sign them up instantly and warp to dashboard
+    await signup(dummyEmail, 'demo_password', 'Demo User');
+    navigate('/dashboard');
+  };
 
+  // ==========================================
+  // 4. FORGOT PASSWORD LOGIC (EMAILJS)
+  // ==========================================
   const handleSendCode = async (e) => {
     e.preventDefault();
     if (!resetEmail) return setError('Please enter your email.');
     setError('');
     
-    // 1. Generate a random 6-digit code
-    const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
-    setActualGeneratedCode(generatedCode); // Save it to check later
+     const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+    setActualGeneratedCode(generatedCode); 
 
-    try {
-      // 2. Send the actual email via EmailJS
+     try {
       await emailjs.send(
-        'service_lou9xya',   // Replace with your EmailJS Service ID
-        'template_frw3eyb',  // Replace with your EmailJS Template ID
+        'service_lou9xya',   // Replace with your Service ID
+        'template_frw3eyb',  // Replace with your Template ID
         {
           to_email: resetEmail,
-          verification_code: generatedCode, // This matches the {{verification_code}} in your template
+          verification_code: generatedCode, 
         },
-        'HLeJQkXHIhKsqhB7u'    // Replace with your EmailJS Public Key
+        'HLeJQkXHIhKsqhB7u'    // Replace with your Public Key
       );
 
-      alert(`Success! A real verification code was sent to ${resetEmail}`);
+      alert(`Success! Verification code sent to ${resetEmail}`);
       setResetStep(2);
-
-    } catch (err) {
+     } catch (err) {
       console.error("Failed to send email:", err);
       setError('Failed to send the email. Please try again later.');
     }
   };
 
   const handleVerifyCode = (e) => {
-    e.preventDefault();
-    
-    // 3. Compare what the user typed against the code we generated
+     e.preventDefault();
     if (resetCode === actualGeneratedCode) {
       setError('');
-      setResetStep(3); // Move to the "Create New Password" step
+      setResetStep(3);
     } else {
       setError('Invalid code. Please check your email and try again.');
     }
@@ -105,10 +126,19 @@ const LoginPage = () => {
   const handleSaveNewPassword = (e) => {
     e.preventDefault();
     if (newPassword.length < 6) return setError('Password must be at least 6 characters.');
+    
+    // Update the password in local storage
+    const savedData = localStorage.getItem('healthFreakProfile');
+    if (savedData) {
+      const userProfile = JSON.parse(savedData);
+      userProfile.password = newPassword;
+      localStorage.setItem('healthFreakProfile', JSON.stringify(userProfile));
+    }
+
     alert("Password successfully reset! You can now log in.");
-    setIsResetting(false);
+    setActiveView('login');
     setResetStep(1);
-    setPassword(''); // Clear old password from input
+    setPassword(''); 
   };
 
   return (
@@ -120,7 +150,9 @@ const LoginPage = () => {
             HealthFreak
           </h1>
           <p className="text-slate-400 mt-2 text-sm">
-            {isResetting ? "Reset your password" : "Your personal fitness companion"}
+            {activeView === 'create' ? "Create your health profile" : 
+             activeView === 'forgot' ? "Reset your password" : 
+             "Your personal fitness companion"}
           </p>
         </div>
 
@@ -130,12 +162,52 @@ const LoginPage = () => {
           </div>
         )}
 
-        {/* ============================== */}
-        {/* VIEW A: FORGOT PASSWORD FLOW   */}
-        {/* ============================== */}
-        {isResetting ? (
+        {/* ========================================== */}
+        {/* VIEW: CREATE PROFILE                       */}
+        {/* ========================================== */}
+        {activeView === 'create' && (
+          <form onSubmit={handleCreateProfile} className="space-y-4">
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+              <Input type="text" placeholder="Full Name" className="pl-10 bg-slate-950 border-slate-700 text-white" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+            </div>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+              <Input type="email" placeholder="Email Address" className="pl-10 bg-slate-950 border-slate-700 text-white" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="relative">
+                <Ruler className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+                <Input type="number" placeholder="Height (cm)" className="pl-10 bg-slate-950 border-slate-700 text-white" value={height} onChange={(e) => setHeight(e.target.value)} required />
+              </div>
+              <div className="relative">
+                <Scale className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+                <Input type="number" placeholder="Weight (kg)" className="pl-10 bg-slate-950 border-slate-700 text-white" value={weight} onChange={(e) => setWeight(e.target.value)} required />
+              </div>
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+              <Input type="password" placeholder="Create Password" className="pl-10 bg-slate-950 border-slate-700 text-white" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
+            </div>
+
+            <Button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold py-6">
+              Create Profile
+            </Button>
+            
+            <button type="button" onClick={() => { setActiveView('login'); setError(''); }} className="w-full text-sm text-slate-400 hover:text-white mt-4 transition-colors">
+              Already have a profile? Log in
+            </button>
+          </form>
+        )}
+
+        {/* ========================================== */}
+        {/* VIEW: FORGOT PASSWORD                      */}
+        {/* ========================================== */}
+        {activeView === 'forgot' && (
           <div className="space-y-4">
-            {resetStep === 1 && (
+             {resetStep === 1 && (
               <form onSubmit={handleSendCode} className="space-y-4">
                 <p className="text-sm text-slate-300">Enter your email to receive a 6-digit verification code.</p>
                 <div className="relative">
@@ -168,15 +240,16 @@ const LoginPage = () => {
               </form>
             )}
 
-            <button onClick={() => { setIsResetting(false); setResetStep(1); setError(''); }} className="w-full text-sm text-slate-400 hover:text-white mt-4 transition-colors">
+            <button onClick={() => { setActiveView('login'); setResetStep(1); setError(''); }} className="w-full text-sm text-slate-400 hover:text-white mt-4 transition-colors">
               Back to Login
             </button>
           </div>
-        ) : (
-        
-        /* ============================== */
-        /* VIEW B: STANDARD LOGIN PAGE    */
-        /* ============================== */
+        )}
+
+        {/* ========================================== */}
+        {/* VIEW: STANDARD LOGIN                       */}
+        {/* ========================================== */}
+        {activeView === 'login' && (
           <div className="space-y-6">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-4">
@@ -191,7 +264,7 @@ const LoginPage = () => {
               </div>
 
               <div className="flex justify-end">
-                <button type="button" onClick={() => { setIsResetting(true); setError(''); }} className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors">
+                <button type="button" onClick={() => { setActiveView('forgot'); setError(''); }} className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors">
                   Forgot Password?
                 </button>
               </div>
@@ -200,6 +273,12 @@ const LoginPage = () => {
                 Sign In <ArrowRight className="w-4 h-4" />
               </Button>
             </form>
+
+            <div className="text-center mt-4">
+              <button type="button" onClick={() => { setActiveView('create'); setError(''); }} className="text-sm text-slate-300 hover:text-white transition-colors">
+                Don't have a profile? <span className="text-cyan-400 font-semibold">Create one</span>
+              </button>
+            </div>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-800" /></div>
@@ -212,6 +291,7 @@ const LoginPage = () => {
             </Button>
           </div>
         )}
+
       </div>
     </div>
   );
