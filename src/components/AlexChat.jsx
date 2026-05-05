@@ -2,10 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
-import { MessageCircle, Send, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, Loader2, Camera, ImagePlus } from 'lucide-react';
+// ... inside your component
 
+
+// Add this helper function to convert images
+const fileToGenerativePart = async (file) => {
+  const base64EncodedDataPromise = new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  return {
+    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+  };
+};
 const AlexChat = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState([
@@ -34,6 +48,29 @@ const AlexChat = () => {
   }, [messages, isOpen]);
 
   const callGeminiAPI = async (userText) => {
+    // Inside your handleSend function...
+let parts = [{ text: input }];
+
+if (selectedImage) {
+  const imagePart = await fileToGenerativePart(selectedImage);
+  parts.push(imagePart);
+  // Add a hidden prompt to force Alex to act as an analyzer
+  parts[0].text = `Analyze this image regarding health/calories/medication: ${input}`; 
+}
+
+const response = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: { text: systemPrompt } },
+      contents: [{ role: "user", parts: parts }],
+    }),
+  }
+);
+// Reset the image state after sending
+setSelectedImage(null);
     // Super-clean the API key
     const rawKey = import.meta.env.VITE_GEMINI_API_KEY || '';
     const cleanKey = rawKey.replace(/['"]/g, '').trim();
@@ -142,24 +179,49 @@ const AlexChat = () => {
             )}
           </div>
 
-          {/* Input Area - Dark Mode */}
-          <div className="p-3 border-t border-slate-700 bg-slate-800 flex gap-2 items-center">
-            <Input 
-              placeholder="Ask me anything..." 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              className="flex-1 rounded-full bg-slate-700 text-white placeholder:text-slate-400 border-transparent focus:bg-slate-600 focus:border-primary"
-              disabled={isTyping}
-            />
-            <Button 
-              size="icon" 
-              onClick={handleSend} 
-              className="shrink-0 rounded-full w-10 h-10 transition-transform hover:scale-105"
-              disabled={isTyping || !input.trim()}
-            >
-              <Send size={18} className="ml-1 text-white" /> 
-            </Button>
+          {/* Input Area with Image Upload */}
+          <div className="p-3 border-t border-slate-700 bg-slate-800 flex flex-col gap-2">
+            {selectedImage && (
+              <div className="text-xs text-green-400 bg-slate-900 p-2 rounded flex justify-between">
+                <span>📷 Image attached!</span>
+                <button onClick={() => setSelectedImage(null)}>✕</button>
+              </div>
+            )}
+            <div className="flex gap-2 items-center">
+              {/* Hidden file input */}
+              <input 
+                type="file" 
+                id="image-upload" 
+                className="hidden" 
+                accept="image/*"
+                onChange={(e) => setSelectedImage(e.target.files[0])}
+              />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => document.getElementById('image-upload').click()}
+                className="shrink-0 text-slate-400 hover:text-white"
+              >
+                <ImagePlus size={18} />
+              </Button>
+              
+              <Input 
+                placeholder="Ask Alex or upload an image..." 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                className="flex-1 rounded-full bg-slate-700 text-white border-transparent"
+                disabled={isTyping}
+              />
+              <Button 
+                size="icon" 
+                onClick={handleSend} 
+                className="shrink-0 rounded-full w-10 h-10 transition-transform hover:scale-105"
+                disabled={isTyping || (!input.trim() && !selectedImage)}
+              >
+                <Send size={18} className="ml-1 text-white" /> 
+              </Button>
+            </div>
           </div>
         </Card>
       )}

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Coffee, Utensils, Cookie, Moon, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Camera, X, Sun, Sunset, Trash2, Coffee, Utensils, Cookie, Moon, ChevronDown, ChevronUp } from 'lucide-react';
 
 const MEAL_TYPES = [
   { id: 'breakfast', label: 'Breakfast', icon: Coffee, color: 'from-amber-500 to-orange-600' },
@@ -20,7 +20,10 @@ const MEAL_TYPES = [
 const FoodTracking = () => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [foodLogs, setFoodLogs] = useState([]);
+  const [foodLogs, setFoodLogs] = useState({
+    Breakfast: [], Lunch: [], Snacks: [], Dinner: []
+  });
+  
   const [dailyGoal, setDailyGoal] = useState(2000);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState(2000);
@@ -31,8 +34,14 @@ const FoodTracking = () => {
     dinner: true,
   });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
   const [currentMealType, setCurrentMealType] = useState('');
   const [newFood, setNewFood] = useState({ name: '', calories: '' });
+
+  const loadFoodLogs = () => {
+    const logs = getFoodLogs(currentUser.id, today);
+    setFoodLogs(logs);
+  };
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -42,15 +51,12 @@ const FoodTracking = () => {
     }
   }, [currentUser]);
 
-  const loadFoodLogs = () => {
-    const logs = getFoodLogs(currentUser.id, today);
-    setFoodLogs(logs);
-  };
-
-  const totalCalories = foodLogs.reduce((sum, log) => sum + log.calories, 0);
+  
+  const totalCalories = (Array.isArray(foodLogs) ? foodLogs : []).reduce((sum, log) => sum + log.calories, 0);
   const caloriePercentage = Math.min((totalCalories / dailyGoal) * 100, 100);
 
   const handleAddFood = () => {
+    addFoodLog(currentUser.id, newFood.name, newFood.calories, today);
     if (!newFood.name || !newFood.calories) {
       toast({
         title: "Error",
@@ -62,6 +68,7 @@ const FoodTracking = () => {
 
     addFoodLog(currentUser.id, currentMealType, newFood.name, newFood.calories, today);
     loadFoodLogs();
+    setCapturedImage(null);
     setNewFood({ name: '', calories: '' });
     setDialogOpen(false);
     toast({
@@ -89,7 +96,7 @@ const FoodTracking = () => {
   };
 
   const getMealLogs = (mealType) => {
-    return foodLogs.filter(log => log.meal_type === mealType);
+    return (Array.isArray(foodLogs) ? foodLogs : []).filter(log => log.meal_type === mealType);
   };
 
   const getMealCalories = (mealType) => {
@@ -102,6 +109,21 @@ const FoodTracking = () => {
 
   return (
     <div className="space-y-6">
+      <input 
+        type="file" 
+        id="global-food-camera" 
+        accept="image/*" 
+        capture="environment" 
+        className="hidden" 
+        onChange={(e) => {
+           const file = e.target.files[0];
+           if (file) {
+             const imageUrl = URL.createObjectURL(file);
+             setCapturedImage(URL.createObjectURL(file)); // Save the picture
+             setDialogOpen(true); // Open your existing shadcn Dialog popup!
+           }
+        }}
+      />
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -213,6 +235,14 @@ const FoodTracking = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button size="sm" 
+                      className="w-8 h-8 rounded-full bg-slate-800 text-cyan-400 hover:bg-slate-700 hover:text-cyan-300 p-0 mr-2" onClick={(e) => {
+            e.stopPropagation();
+            setCurrentMealType(meal.id); // Tells the app this is for Breakfast/Lunch/etc
+            document.getElementById('global-food-camera').click(); // Opens the camera!
+          }}>
+            <Camera size={14} />
+          </Button>
                       <Dialog open={dialogOpen && currentMealType === meal.id} onOpenChange={(open) => {
                         setDialogOpen(open);
                         if (open) setCurrentMealType(meal.id);
@@ -235,6 +265,12 @@ const FoodTracking = () => {
                             <DialogDescription>Enter the food details</DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4">
+                            {/* Show the photo if they took one! */}
+            {capturedImage && (
+              <div className="w-full flex justify-center mb-2">
+                <img src={capturedImage} alt="Food" className="h-32 object-cover rounded-lg border border-slate-700" />
+              </div>
+            )}
                             <div className="space-y-2">
                               <Label htmlFor="food-name">Food Name</Label>
                               <Input

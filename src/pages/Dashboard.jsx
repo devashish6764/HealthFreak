@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ActivityTracking from '../components/ActivityTracking';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -20,13 +21,15 @@ import {
   Menu, 
   X,
   Droplet,
-  Bell
+  Bell,
+  Activity
 } from 'lucide-react';
 
 const NAVIGATION_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'food', label: 'Food Tracking', icon: Utensils },
   { id: 'water', label: 'Water Intake', icon: Droplet },
+  { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'medications', label: 'Medications', icon: Pill },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'progress', label: 'Progress', icon: TrendingUp },
@@ -42,13 +45,21 @@ const Dashboard = () => {
     logout();
     window.location.href = '/';
   };
-
+<QuickStatCard
+          title="Activity Tracking"
+          description="Log your daily workouts and active minutes"
+          icon={Activity}
+          color="from-orange-500 to-red-600"
+          delay={0.35}
+        />
   const renderContent = () => {
     switch (activeSection) {
       case 'food':
         return <FoodTracking />;
       case 'water':
         return <WaterIntake />;
+      case 'activity':
+        return <ActivityTracking />;
       case 'medications':
         return <MedicationManagement />;
       case 'notifications':
@@ -176,7 +187,7 @@ const DashboardHome = () => {
   const { currentUser } = useAuth();
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -185,7 +196,7 @@ const DashboardHome = () => {
         <p className="text-gray-400">Here's your health overview</p>
       </motion.div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <QuickStatCard
           title="Food Tracking"
           description="Log your daily meals and track calories"

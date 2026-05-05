@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Download,TrendingUp, Calendar, BarChart3 } from 'lucide-react';
+import { Button } from '../components/ui/button';
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet';
 import { useAuth } from '@/context/AuthContext';
 import { getFoodLogs, getWaterIntake, getWeightLogs } from '@/utils/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, Calendar, BarChart3 } from 'lucide-react';
+
+
 
 const ProgressReports = () => {
   const { currentUser } = useAuth();
@@ -14,6 +19,21 @@ const ProgressReports = () => {
   const [weekData, setWeekData] = useState([]);
   const [monthData, setMonthData] = useState([]);
 
+const exportToPDF = async () => {
+    const element = document.getElementById('report-content'); 
+    if (!element) return;
+    try {
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('HealthFreak-Monthly-Report.pdf');
+    } catch (error) {
+      console.error("Failed to generate PDF", error);
+    }
+  };
   useEffect(() => {
     if (currentUser) {
       loadData();
@@ -110,7 +130,13 @@ const ProgressReports = () => {
         <title>Progress Reports - Health Freak</title>
         <meta name="description" content="Track your health progress over time" />
       </Helmet>
-      <div className="space-y-6">
+      <div id="report-content" className="space-y-6">
+        {/* PDF Export Button */}
+        <div className="flex justify-end w-full">
+          <Button onClick={exportToPDF} className="gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 shadow-lg">
+            <Download size={18} /> Export PDF Report
+          </Button>
+        </div>
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
