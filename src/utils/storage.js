@@ -1,279 +1,313 @@
-// Local storage utility functions for data persistence
-// This will be replaced with Supabase once integration is complete
+// We use two separate keys: one for the "Database" of all users, and one for the active login.
+const USERS_DATABASE_KEY = 'healthfreak_all_users';
+const ACTIVE_SESSION_KEY = 'healthfreak_current_user';
 
-const STORAGE_KEYS = {
-  USERS: 'health_tracker_users',
-  CURRENT_USER: 'health_tracker_current_user',
-  PROFILES: 'health_tracker_profiles',
-  FOOD_LOGS: 'health_tracker_food_logs',
-  MEDICATIONS: 'health_tracker_medications',
-  MEDICATION_REMINDERS: 'health_tracker_medication_reminders',
-  WATER_INTAKE: 'health_tracker_water_intake',
-  WEIGHT_LOGS: 'health_tracker_weight_logs',
+// --- HELPER FUNCTIONS ---
+// Grabs the full list of registered users
+const getAllUsers = () => {
+  const users = localStorage.getItem(USERS_DATABASE_KEY);
+  return users ? JSON.parse(users) : [];
 };
 
-// Helper functions
-const getFromStorage = (key) => {
-  try {
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : null;
-  } catch (error) {
-    console.error(`Error reading ${key} from localStorage:`, error);
-    return null;
-  }
+// Saves the full list back to memory
+const saveAllUsers = (users) => {
+  localStorage.setItem(USERS_DATABASE_KEY, JSON.stringify(users));
 };
 
-const setToStorage = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error(`Error writing ${key} to localStorage:`, error);
-  }
-};
+// --- AUTHENTICATION FUNCTIONS ---
 
-// UUID generator
-const generateUUID = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
-
-// User authentication
-export const createUser = (email, password, username) => {
-  const users = getFromStorage(STORAGE_KEYS.USERS) || [];
+export const createUser = (email, password, name) => {
+  const users = getAllUsers();
   
-  if (users.find(u => u.email === email)) {
-    throw new Error('User already exists');
+  // 1. Check if the email is already taken
+  const existingUser = users.find(user => user.email === email);
+  if (existingUser) {
+    throw new Error("An account with this email already exists.");
   }
 
-  const userId = generateUUID();
+  // 2. Create the new profile
   const newUser = {
-    id: userId,
-    email,
-    password_hash: btoa(password), // Simple encoding (use proper hashing in production)
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    id: Date.now().toString(),
+    email: email,
+    password: password, 
+    name: name,
+    createdAt: new Date().toISOString()
   };
 
+  // 3. Add to our "database" and save
   users.push(newUser);
-  setToStorage(STORAGE_KEYS.USERS, users);
+  saveAllUsers(users);
 
-  // Create profile
-  const profiles = getFromStorage(STORAGE_KEYS.PROFILES) || [];
-  const newProfile = {
-    id: generateUUID(),
-    user_id: userId,
-    username,
-    weight: null,
-    height: null,
-    lactose_intolerant: false,
-    weight_unit: 'kg',
-    height_unit: 'cm',
-    updated_at: new Date().toISOString(),
-  };
-  profiles.push(newProfile);
-  setToStorage(STORAGE_KEYS.PROFILES, profiles);
-
-  return { user: newUser, profile: newProfile };
+  // 4. Log the user in automatically
+  localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(newUser));
+  
+  return { user: newUser };
 };
 
 export const loginUser = (email, password) => {
-  const users = getFromStorage(STORAGE_KEYS.USERS) || [];
-  const user = users.find(
-    u => u.email === email && u.password_hash === btoa(password)
-  );
-
+  const users = getAllUsers();
+  
+  // 1. Find the user in our database
+  const user = users.find(u => u.email === email);
+  
+  // 2. Verify they exist and the password matches
   if (!user) {
-    throw new Error('Invalid email or password');
+    throw new Error("No account found with this email. Please create a profile.");
+  }
+  
+  if (user.password !== password) {
+    throw new Error("Incorrect password. Please try again.");
   }
 
-  setToStorage(STORAGE_KEYS.CURRENT_USER, user);
+  // 3. Set them as the active logged-in user
+  localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(user));
   return user;
 };
 
-export const logoutUser = () => {
-  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-};
-
 export const getCurrentUser = () => {
-  return getFromStorage(STORAGE_KEYS.CURRENT_USER);
+  // Checks if someone is currently logged in when the app loads
+  const session = localStorage.getItem(ACTIVE_SESSION_KEY);
+  return session ? JSON.parse(session) : null;
 };
 
-// Profile management
-export const getProfile = (userId) => {
-  const profiles = getFromStorage(STORAGE_KEYS.PROFILES) || [];
-  return profiles.find(p => p.user_id === userId);
+export const logoutUser = () => {
+  // Only deletes the active session, NOT the user's profile from the database!
+  localStorage.removeItem(ACTIVE_SESSION_KEY);
+};
+// ==========================================
+// APP DATA STORAGE (Food & Activity Tracking)
+// ==========================================
+
+const FOOD_LOGS_KEY = 'healthfreak_food_logs';
+
+// Get all food logs from local storage
+export const getFoodLogs = () => {
+  const logs = localStorage.getItem(FOOD_LOGS_KEY);
+  return logs ? JSON.parse(logs) : [];
 };
 
-export const updateProfile = (userId, updates) => {
-  const profiles = getFromStorage(STORAGE_KEYS.PROFILES) || [];
-  const index = profiles.findIndex(p => p.user_id === userId);
+// Add a new food log
+export const addFoodLog = (logData) => {
+  const logs = getFoodLogs();
   
-  if (index !== -1) {
-    profiles[index] = {
-      ...profiles[index],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
-    setToStorage(STORAGE_KEYS.PROFILES, profiles);
-    return profiles[index];
-  }
-  return null;
-};
-
-// Food logs
-export const getFoodLogs = (userId, date = null) => {
-  const logs = getFromStorage(STORAGE_KEYS.FOOD_LOGS) || [];
-  let userLogs = logs.filter(log => log.user_id === userId);
-  
-  if (date) {
-    userLogs = userLogs.filter(log => log.date === date);
-  }
-  
-  return userLogs;
-};
-
-export const addFoodLog = (userId, mealType, foodName, calories, date) => {
-  const logs = getFromStorage(STORAGE_KEYS.FOOD_LOGS) || [];
+  // Create the new log entry with a unique ID and timestamp
   const newLog = {
-    id: generateUUID(),
-    user_id: userId,
-    meal_type: mealType,
-    food_name: foodName,
-    calories: parseInt(calories),
-    date,
-    created_at: new Date().toISOString(),
+    ...logData,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString()
   };
+  
   logs.push(newLog);
-  setToStorage(STORAGE_KEYS.FOOD_LOGS, logs);
+  localStorage.setItem(FOOD_LOGS_KEY, JSON.stringify(logs));
+  
   return newLog;
 };
 
-export const deleteFoodLog = (logId) => {
-  const logs = getFromStorage(STORAGE_KEYS.FOOD_LOGS) || [];
-  const filtered = logs.filter(log => log.id !== logId);
-  setToStorage(STORAGE_KEYS.FOOD_LOGS, filtered);
+// You might also need these if ActivityTracking.jsx looks for them!
+const ACTIVITY_LOGS_KEY = 'healthfreak_activity_logs';
+
+export const getActivityLogs = () => {
+  const logs = localStorage.getItem(ACTIVITY_LOGS_KEY);
+  return logs ? JSON.parse(logs) : [];
 };
 
-// Medications
-export const getMedications = (userId) => {
-  const meds = getFromStorage(STORAGE_KEYS.MEDICATIONS) || [];
-  return meds.filter(med => med.user_id === userId);
-};
-
-export const addMedication = (userId, medicationName, dosage) => {
-  const meds = getFromStorage(STORAGE_KEYS.MEDICATIONS) || [];
-  const newMed = {
-    id: generateUUID(),
-    user_id: userId,
-    medication_name: medicationName,
-    dosage,
-    created_at: new Date().toISOString(),
+export const addActivityLog = (logData) => {
+  const logs = getActivityLogs();
+  const newLog = {
+    ...logData,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString()
   };
+  logs.push(newLog);
+  localStorage.setItem(ACTIVITY_LOGS_KEY, JSON.stringify(logs));
+  return newLog;
+};
+// Delete a food log by ID
+export const deleteFoodLog = (id) => {
+  const logs = getFoodLogs();
+  // Keep everything EXCEPT the log with the matching ID
+  const updatedLogs = logs.filter(log => log.id !== id);
+  localStorage.setItem(FOOD_LOGS_KEY, JSON.stringify(updatedLogs));
+  return updatedLogs;
+};
+
+// Delete an activity log by ID (Adding this just in case your Activity page needs it!)
+export const deleteActivityLog = (id) => {
+  const logs = getActivityLogs();
+  const updatedLogs = logs.filter(log => log.id !== id);
+  localStorage.setItem(ACTIVITY_LOGS_KEY, JSON.stringify(updatedLogs));
+  return updatedLogs;
+};
+// ==========================================
+// MEDICATION TRACKING
+// ==========================================
+
+const MEDICATIONS_KEY = 'healthfreak_medications';
+
+// Get all medications
+export const getMedications = () => {
+  const meds = localStorage.getItem(MEDICATIONS_KEY);
+  return meds ? JSON.parse(meds) : [];
+};
+
+// Add a new medication
+export const addMedication = (medData) => {
+  const meds = getMedications();
+  
+  const newMed = {
+    ...medData,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString()
+  };
+  
   meds.push(newMed);
-  setToStorage(STORAGE_KEYS.MEDICATIONS, meds);
+  localStorage.setItem(MEDICATIONS_KEY, JSON.stringify(meds));
+  
   return newMed;
 };
 
-export const deleteMedication = (medId) => {
-  const meds = getFromStorage(STORAGE_KEYS.MEDICATIONS) || [];
-  const filtered = meds.filter(med => med.id !== medId);
-  setToStorage(STORAGE_KEYS.MEDICATIONS, filtered);
+// Delete a medication
+export const deleteMedication = (id) => {
+  const meds = getMedications();
+  const updatedMeds = meds.filter(med => med.id !== id);
+  localStorage.setItem(MEDICATIONS_KEY, JSON.stringify(updatedMeds));
+  return updatedMeds;
+};
+// ==========================================
+// REMINDERS
+// ==========================================
+
+const REMINDERS_KEY = 'healthfreak_reminders';
+
+// Get all reminders
+export const getReminders = () => {
+  const reminders = localStorage.getItem(REMINDERS_KEY);
+  return reminders ? JSON.parse(reminders) : [];
+};
+
+// Add a new reminder
+export const addReminder = (reminderData) => {
+  const reminders = getReminders();
   
-  // Also delete associated reminders
-  const reminders = getFromStorage(STORAGE_KEYS.MEDICATION_REMINDERS) || [];
-  const filteredReminders = reminders.filter(r => r.medication_id !== medId);
-  setToStorage(STORAGE_KEYS.MEDICATION_REMINDERS, filteredReminders);
-};
-
-// Medication reminders
-export const getReminders = (medicationId = null) => {
-  const reminders = getFromStorage(STORAGE_KEYS.MEDICATION_REMINDERS) || [];
-  if (medicationId) {
-    return reminders.filter(r => r.medication_id === medicationId);
-  }
-  return reminders;
-};
-
-export const addReminder = (medicationId, reminderTime, daysOfWeek) => {
-  const reminders = getFromStorage(STORAGE_KEYS.MEDICATION_REMINDERS) || [];
   const newReminder = {
-    id: generateUUID(),
-    medication_id: medicationId,
-    reminder_time: reminderTime,
-    days_of_week: daysOfWeek,
-    created_at: new Date().toISOString(),
+    ...reminderData,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString()
   };
+  
   reminders.push(newReminder);
-  setToStorage(STORAGE_KEYS.MEDICATION_REMINDERS, reminders);
+  localStorage.setItem(REMINDERS_KEY, JSON.stringify(reminders));
+  
   return newReminder;
 };
 
-export const deleteReminder = (reminderId) => {
-  const reminders = getFromStorage(STORAGE_KEYS.MEDICATION_REMINDERS) || [];
-  const filtered = reminders.filter(r => r.id !== reminderId);
-  setToStorage(STORAGE_KEYS.MEDICATION_REMINDERS, filtered);
+// Delete a reminder
+export const deleteReminder = (id) => {
+  const reminders = getReminders();
+  const updatedReminders = reminders.filter(reminder => reminder.id !== id);
+  localStorage.setItem(REMINDERS_KEY, JSON.stringify(updatedReminders));
+  return updatedReminders;
+};
+// ==========================================
+// WATER INTAKE TRACKING
+// ==========================================
+
+const WATER_INTAKE_KEY = 'healthfreak_water_intake';
+
+// Get all water intake logs
+export const getWaterIntake = () => {
+  const logs = localStorage.getItem(WATER_INTAKE_KEY);
+  return logs ? JSON.parse(logs) : [];
 };
 
-// Water intake
-export const getWaterIntake = (userId, date = null) => {
-  const intake = getFromStorage(STORAGE_KEYS.WATER_INTAKE) || [];
-  let userIntake = intake.filter(w => w.user_id === userId);
+// Add a new water intake log (This is the one your app is begging for!)
+export const addWaterIntake = (intakeData) => {
+  const logs = getWaterIntake();
   
-  if (date) {
-    userIntake = userIntake.filter(w => w.date === date);
-  }
-  
-  return userIntake;
-};
-
-export const addWaterIntake = (userId, amountMl, date) => {
-  const intake = getFromStorage(STORAGE_KEYS.WATER_INTAKE) || [];
-  const newIntake = {
-    id: generateUUID(),
-    user_id: userId,
-    amount_ml: parseInt(amountMl),
-    date,
-    created_at: new Date().toISOString(),
-  };
-  intake.push(newIntake);
-  setToStorage(STORAGE_KEYS.WATER_INTAKE, intake);
-  return newIntake;
-};
-
-export const deleteWaterIntake = (intakeId) => {
-  const intake = getFromStorage(STORAGE_KEYS.WATER_INTAKE) || [];
-  const filtered = intake.filter(w => w.id !== intakeId);
-  setToStorage(STORAGE_KEYS.WATER_INTAKE, filtered);
-};
-
-// Weight logs
-export const getWeightLogs = (userId, startDate = null, endDate = null) => {
-  const logs = getFromStorage(STORAGE_KEYS.WEIGHT_LOGS) || [];
-  let userLogs = logs.filter(log => log.user_id === userId);
-  
-  if (startDate && endDate) {
-    userLogs = userLogs.filter(log => {
-      const logDate = new Date(log.date);
-      return logDate >= new Date(startDate) && logDate <= new Date(endDate);
-    });
-  }
-  
-  return userLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
-};
-
-export const addWeightLog = (userId, weight, date) => {
-  const logs = getFromStorage(STORAGE_KEYS.WEIGHT_LOGS) || [];
   const newLog = {
-    id: generateUUID(),
-    user_id: userId,
-    weight: parseFloat(weight),
-    date,
-    created_at: new Date().toISOString(),
+    ...intakeData,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString()
   };
+  
   logs.push(newLog);
-  setToStorage(STORAGE_KEYS.WEIGHT_LOGS, logs);
+  localStorage.setItem(WATER_INTAKE_KEY, JSON.stringify(logs));
+  
   return newLog;
+};
+
+// Delete a water intake log
+export const deleteWaterIntake = (id) => {
+  const logs = getWaterIntake();
+  const updatedLogs = logs.filter(log => log.id !== id);
+  localStorage.setItem(WATER_INTAKE_KEY, JSON.stringify(updatedLogs));
+  return updatedLogs;
+};
+// ==========================================
+// WEIGHT TRACKING
+// ==========================================
+
+const WEIGHT_LOGS_KEY = 'healthfreak_weight_logs';
+
+// Get all weight logs (This is the exact function causing the error!)
+export const getWeightLogs = () => {
+  const logs = localStorage.getItem(WEIGHT_LOGS_KEY);
+  return logs ? JSON.parse(logs) : [];
+};
+
+// Add a new weight log
+export const addWeightLog = (logData) => {
+  const logs = getWeightLogs();
+  
+  const newLog = {
+    ...logData,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString()
+  };
+  
+  logs.push(newLog);
+  localStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(logs));
+  
+  return newLog;
+};
+
+// Delete a weight log
+export const deleteWeightLog = (id) => {
+  const logs = getWeightLogs();
+  const updatedLogs = logs.filter(log => log.id !== id);
+  localStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updatedLogs));
+  return updatedLogs;
+};
+// ==========================================
+// USER PROFILE MANAGEMENT
+// ==========================================
+
+// Get the active user's profile
+export const getProfile = () => {
+  const session = localStorage.getItem('healthfreak_current_user');
+  return session ? JSON.parse(session) : null;
+};
+
+// Update the active user's profile (Adding this to prevent a crash when you click Save!)
+export const updateProfile = (updatedData) => {
+  const session = localStorage.getItem('healthfreak_current_user');
+  if (!session) return null;
+
+  let currentUser = JSON.parse(session);
+  
+  // Merge the new changes (like a new profile picture or updated weight)
+  currentUser = { ...currentUser, ...updatedData };
+  
+  // 1. Save to the active session
+  localStorage.setItem('healthfreak_current_user', JSON.stringify(currentUser));
+
+  // 2. Save back to the main database so changes aren't lost when you log out!
+  const usersRaw = localStorage.getItem('healthfreak_all_users');
+  if (usersRaw) {
+    const users = JSON.parse(usersRaw);
+    const updatedUsers = users.map(u => u.id === currentUser.id ? currentUser : u);
+    localStorage.setItem('healthfreak_all_users', JSON.stringify(updatedUsers));
+  }
+
+  return currentUser;
 };
