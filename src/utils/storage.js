@@ -80,25 +80,35 @@ export const logoutUser = () => {
 
 const FOOD_LOGS_KEY = 'healthfreak_food_logs';
 
-// Get all food logs from local storage
-export const getFoodLogs = () => {
-  const logs = localStorage.getItem(FOOD_LOGS_KEY);
-  return logs ? JSON.parse(logs) : [];
+ export const getFoodLogs = () => {
+  const session = localStorage.getItem('healthfreak_current_user');
+  if (!session) return [];
+  const currentUser = JSON.parse(session);
+
+  const allLogsRaw = localStorage.getItem('healthfreak_food_logs');
+  const allLogs = allLogsRaw ? JSON.parse(allLogsRaw) : [];
+
+  // Only return meals that match the current user's ID
+  return allLogs.filter(log => log.userId === currentUser.id);
 };
 
 // Add a new food log
 export const addFoodLog = (logData) => {
+  const session = localStorage.getItem('healthfreak_current_user');
+  if (!session) return null;
+  const currentUser = JSON.parse(session);
+
   const logs = getFoodLogs();
   
-  // Create the new log entry with a unique ID and timestamp
   const newLog = {
     ...logData,
     id: Date.now().toString(),
+    userId: currentUser.id, // Tag the meal with the User's ID
     createdAt: new Date().toISOString()
   };
   
   logs.push(newLog);
-  localStorage.setItem(FOOD_LOGS_KEY, JSON.stringify(logs));
+  localStorage.setItem('healthfreak_food_logs', JSON.stringify(logs));
   
   return newLog;
 };
