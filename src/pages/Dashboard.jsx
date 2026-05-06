@@ -96,7 +96,7 @@ const Dashboard = () => {
                   )}
                 </button>
                 <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-                  Health Tracker
+                  Health Freak
                 </span>
               </div>
               <div className="flex items-center gap-4">
