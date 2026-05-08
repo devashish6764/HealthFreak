@@ -3,10 +3,8 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { MessageCircle, Send, Loader2, Camera, ImagePlus } from 'lucide-react';
-// ... inside your component
 
-
-// Add this helper function to convert images
+// Helper function to convert images for Gemini
 const fileToGenerativePart = async (file) => {
   const base64EncodedDataPromise = new Promise((resolve) => {
     const reader = new FileReader();
@@ -17,6 +15,7 @@ const fileToGenerativePart = async (file) => {
     inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
   };
 };
+
 const AlexChat = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -29,9 +28,6 @@ const AlexChat = () => {
     }
   ]);
   const scrollRef = useRef(null);
-
-  // This safely grabs your API key from the .env file!
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY?.replace(/['"]/g, '').trim();
 
   const systemPrompt = `You are Alex, an energetic, highly motivating, and informative health assistant for the HealthFreak app. 
   Your primary rules are:
@@ -47,83 +43,84 @@ const AlexChat = () => {
     }
   }, [messages, isOpen]);
 
-  const callGeminiAPI = async (userText) => {
-    // Inside your handleSend function...
-let parts = [{ text: input }];
-
-if (selectedImage) {
-  const imagePart = await fileToGenerativePart(selectedImage);
-  parts.push(imagePart);
-  // Add a hidden prompt to force Alex to act as an analyzer
-  parts[0].text = `Analyze this image regarding health/calories/medication: ${input}`; 
-}
-
-const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`,
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: { text: systemPrompt } },
-      contents: [{ role: "user", parts: parts }],
-    }),
-  }
-);
-// Reset the image state after sending
-setSelectedImage(null);
-    // Super-clean the API key
+  // Cleaned up API Call Function
+  const callGeminiAPI = async (userText, imageFile) => {
+    // 1. Get and clean the API key first
     const rawKey = import.meta.env.VITE_GEMINI_API_KEY || '';
     const cleanKey = rawKey.replace(/['"]/g, '').trim();
 
     if (!cleanKey) {
-      return "Oops! My API key is missing. Please check your Vercel settings! 🛑";
+      return "Oops! My API key is missing. Please check your Vercel settings or .env file! 🛑";
     }
 
     try {
-      // 🚨 FIXED MODEL NAME TO INCLUDE '-latest' 🚨
+      // 2. Prepare the message parts
+      let parts = [{ text: userText || "Analyze this image for me." }];
+
+      // 3. Attach image if one exists
+      if (imageFile) {
+        const imagePart = await fileToGenerativePart(imageFile);
+        parts.push(imagePart);
+        // Force Alex to act as an analyzer if an image is sent
+        parts[0].text = `Analyze this image regarding health/calories/medication. User's specific question: ${userText}`; 
+      }
+
+      // 4. Send the request
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cleanKey}`,
-          {
-            method: 'POST',
+        {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             system_instruction: { parts: { text: systemPrompt } },
-            contents: [{ role: "user", parts: [{ text: userText }] }],
+            contents: [{ role: "user", parts: parts }],
           }),
         }
       );
 
-      // Catch Google's exact error
+      // 5. Handle errors
       if (!response.ok) {
         const errorData = await response.json();
         console.error("🚨 GOOGLE ERROR:", errorData);
-        return `Google Error: ${errorData.error?.message || "Unknown 404"}`;
+        return `API Error: ${errorData.error?.message || "Something went wrong."}`;
       }
 
+      // 6. Return the success data
       const data = await response.json();
-      
       if (data.candidates && data.candidates.length > 0) {
         return data.candidates[0].content.parts[0].text;
       } else {
         return "I connected, but didn't get a response back!";
       }
+
     } catch (error) {
       console.error("Fetch Error:", error);
       return "My connection dropped! Check your internet or API key formatting. 🧘‍♂️";
     }
   };
 
-
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() && !selectedImage) return;
 
-    const userMessage = { role: 'user', text: input };
+    // Save the input and image BEFORE clearing them from the UI
+    const currentInput = input;
+    const currentImage = selectedImage;
+
+    const userMessage = { 
+      role: 'user', 
+      text: currentInput || "📷 [Image Uploaded]" 
+    };
+    
+    // Update UI instantly
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setSelectedImage(null); 
     setIsTyping(true);
 
-    const aiResponseText = await callGeminiAPI(userMessage.text);
+    // Call API with the saved variables
+    const aiResponseText = await callGeminiAPI(currentInput, currentImage);
 
+    // Add AI response to UI
     const alexMessage = { role: 'alex', text: aiResponseText };
     setMessages(prev => [...prev, alexMessage]);
     setIsTyping(false);
